@@ -1,17 +1,27 @@
 package com.hackathon.westhill.hackathonbrailleinput;
 
 import android.content.Context;
+import android.net.Uri;
+import android.os.Handler;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Html;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import android.os.Vibrator;
+import android.widget.TextView;
+
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.common.api.GoogleApiClient;
 
 import org.w3c.dom.Text;
 
@@ -21,8 +31,18 @@ public class BrailleInputActivity extends AppCompatActivity {
     Button button;
     HashMap<View, Boolean> states;
     Vibrator vibrator;
+    public static TextView sentence;
     public static boolean open = false;
     public static boolean paused = false;
+    public static int progress = 0;
+    private static String[] alphabet = {
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
+    };
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,10 +55,15 @@ public class BrailleInputActivity extends AppCompatActivity {
         circle4 = findViewById(R.id.circle4);
         circle5 = findViewById(R.id.circle5);
         circle6 = findViewById(R.id.circle6);
+        progress = 0;
+        sentence = (TextView) findViewById(R.id.sentence_to_type);
         button = (Button) findViewById(R.id.submit_pattern_button);
         resetBoard();
         vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
         HostSelectionActivity.webSocketConnection.bindInputActivity(this);
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
     public void resetBoard() {
@@ -50,7 +75,7 @@ public class BrailleInputActivity extends AppCompatActivity {
         states.put(circle5, false);
         states.put(circle6, false);
         View[] circles = {circle1, circle2, circle3, circle4, circle5, circle6};
-        for(View circle : circles) {
+        for (View circle : circles) {
             circle.setBackgroundResource(R.drawable.circle);
         }
         button.setText(getResources().getText(R.string.submit_braille_pattern));
@@ -70,9 +95,33 @@ public class BrailleInputActivity extends AppCompatActivity {
         }
     }
 
+    public static boolean stepString() {
+        String sent = sentence.getText().toString();
+        if (progress+1 >= sent.length()) {
+            return true;
+        }
+        progress++;
+        while (!Arrays.asList(alphabet).contains(String.valueOf(sent.charAt(progress)).toLowerCase())) {
+            progress++;
+        }
+        setSentence(sent, false);
+        return false;
+    }
+
     public void tapCircle(View circle) {
-        if(!paused)
+        if (!paused)
             invertCircle(circle);
+    }
+
+    public static void setSentence(String s, boolean fromStart) {
+        if (fromStart)
+            progress = 0;
+        String joined = "";
+        if (progress > 0)
+            joined += s.substring(0, progress);
+        joined += "<font color=\"#EE0000\">"+s.charAt(progress)+"</font>";
+        joined += s.substring(progress+1);
+        sentence.setText(Html.fromHtml(joined));
     }
 
     public void submitBraillePattern(View view) {
@@ -85,17 +134,21 @@ public class BrailleInputActivity extends AppCompatActivity {
                 states.get(circle5),
                 states.get(circle6)
         };
-        for(Boolean circleState : values) {
+        for (Boolean circleState : values) {
             serialised += circleState ? "1" : "0";
         }
         String resolved = BrailleMap.resolve(serialised);
-        if (resolved != null) {
+        if (resolved != null && !resolved.toLowerCase().equals(String.valueOf(sentence.getText().toString().toLowerCase().charAt(progress)))) {
+            HostSelectionActivity.tts.say("Incorrect Letter", TextToSpeech.QUEUE_ADD);
+        } else if (resolved != null) {
             HostSelectionActivity.tts.say(resolved, TextToSpeech.QUEUE_ADD);
-            HostSelectionActivity.webSocketConnection.send("pattern " + serialised + " " + resolved);
+            HostSelectionActivity.webSocketConnection.send("progress " + progress);
             button.setText(resolved);
             button.setEnabled(false);
+            if (stepString()) {
+            }
             paused = true;
-            new android.os.Handler().postDelayed(new Runnable() {
+            new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     resetBoard();
@@ -111,5 +164,45 @@ public class BrailleInputActivity extends AppCompatActivity {
         super.finish();
         open = false;
         HostSelectionActivity.webSocketConnection.close();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.connect();
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "BrailleInput Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://com.hackathon.westhill.hackathonbrailleinput/http/host/path")
+        );
+        AppIndex.AppIndexApi.start(client, viewAction);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "BrailleInput Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://com.hackathon.westhill.hackathonbrailleinput/http/host/path")
+        );
+        AppIndex.AppIndexApi.end(client, viewAction);
+        client.disconnect();
     }
 }

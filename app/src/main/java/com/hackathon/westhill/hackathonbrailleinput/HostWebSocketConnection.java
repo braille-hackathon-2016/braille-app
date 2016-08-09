@@ -2,6 +2,8 @@ package com.hackathon.westhill.hackathonbrailleinput;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.tts.TextToSpeech;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -10,6 +12,7 @@ import org.java_websocket.handshake.ServerHandshake;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 
 /**
  * Created by amish on 04/08/2016.
@@ -21,7 +24,7 @@ public class HostWebSocketConnection {
     BrailleInputActivity inputActivity;
     HostWebSocketClient connection;
     Runnable eventOpen, eventError;
-    Handler handler;
+    Handler handler, inputHandler;
 
     HostWebSocketConnection(HostSelectionActivity activity, URI uri) {
         this.selectionActivity = activity;
@@ -36,6 +39,7 @@ public class HostWebSocketConnection {
 
     public void bindInputActivity(BrailleInputActivity activity) {
         inputActivity = activity;
+        inputHandler = new Handler(activity.getMainLooper());
     }
 
     public void close() {
@@ -61,7 +65,25 @@ public class HostWebSocketConnection {
 
         @Override
         public void onMessage(String message) {
-
+            String[] args = message.split("\\s+");
+            final String command = args[0];
+            final String[] arguments = Arrays.copyOfRange(args, 1, args.length);
+            Log.d("braille-message", message);
+            if (command.equals("sentence")) {
+                final String sent = TextUtils.join(" ", arguments);
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        selectionActivity.tts.say(sent, TextToSpeech.QUEUE_ADD);
+                    }
+                });
+                inputHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        inputActivity.setSentence(TextUtils.join(" ", arguments), true);
+                    }
+                });
+            }
         }
 
         @Override
