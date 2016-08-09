@@ -28,9 +28,9 @@ import org.w3c.dom.Text;
 public class BrailleInputActivity extends AppCompatActivity {
 
     View circle1, circle2, circle3, circle4, circle5, circle6;
-    Button button;
+    public static Button button;
     HashMap<View, Boolean> states;
-    Vibrator vibrator;
+    public static Vibrator vibrator;
     public static TextView sentence;
     public static boolean open = false;
     public static boolean paused = false;
@@ -61,6 +61,7 @@ public class BrailleInputActivity extends AppCompatActivity {
         resetBoard();
         vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
         HostSelectionActivity.webSocketConnection.bindInputActivity(this);
+        getSupportActionBar().setTitle("Player " + (HostSelectionActivity.webSocketConnection.playerNumber+1));
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
@@ -95,6 +96,17 @@ public class BrailleInputActivity extends AppCompatActivity {
         }
     }
 
+    public static void waitingForNext(int winner) {
+        button.setEnabled(false);
+        vibrator.vibrate(500);
+        if (winner == HostSelectionActivity.webSocketConnection.playerNumber) {
+            button.setText("you won");
+        } else {
+            button.setText("you lost");
+        }
+        paused = true;
+    }
+
     public static boolean stepString() {
         String sent = sentence.getText().toString();
         if (progress+1 >= sent.length()) {
@@ -114,8 +126,12 @@ public class BrailleInputActivity extends AppCompatActivity {
     }
 
     public static void setSentence(String s, boolean fromStart) {
-        if (fromStart)
+        if (fromStart) {
+            paused = false;
+            button.setText("submit");
+            button.setEnabled(true);
             progress = 0;
+        }
         String joined = "";
         if (progress > 0)
             joined += s.substring(0, progress);
@@ -139,21 +155,15 @@ public class BrailleInputActivity extends AppCompatActivity {
         }
         String resolved = BrailleMap.resolve(serialised);
         if (resolved != null && !resolved.toLowerCase().equals(String.valueOf(sentence.getText().toString().toLowerCase().charAt(progress)))) {
-            HostSelectionActivity.tts.say("Incorrect Letter", TextToSpeech.QUEUE_ADD);
+            HostSelectionActivity.tts.say("Incorrect " + resolved, TextToSpeech.QUEUE_ADD);
         } else if (resolved != null) {
             HostSelectionActivity.tts.say(resolved, TextToSpeech.QUEUE_ADD);
             HostSelectionActivity.webSocketConnection.send("progress " + progress);
             button.setText(resolved);
             button.setEnabled(false);
-            if (stepString()) {
-            }
             paused = true;
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    resetBoard();
-                }
-            }, 500);
+            if (stepString()) { }
+            resetBoard();
         } else {
             HostSelectionActivity.tts.say("Unknown input", TextToSpeech.QUEUE_ADD);
         }

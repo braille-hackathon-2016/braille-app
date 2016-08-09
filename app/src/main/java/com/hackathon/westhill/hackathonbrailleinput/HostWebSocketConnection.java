@@ -25,6 +25,7 @@ public class HostWebSocketConnection {
     HostWebSocketClient connection;
     Runnable eventOpen, eventError;
     Handler handler, inputHandler;
+    public static int playerNumber;
 
     HostWebSocketConnection(HostSelectionActivity activity, URI uri) {
         this.selectionActivity = activity;
@@ -55,12 +56,6 @@ public class HostWebSocketConnection {
         @Override
         public void onOpen(ServerHandshake handshakedata) {
             Log.d("braille.websocket", "socket open");
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    selectionActivity.onConnectionOpen();
-                }
-            });
         }
 
         @Override
@@ -69,7 +64,15 @@ public class HostWebSocketConnection {
             final String command = args[0];
             final String[] arguments = Arrays.copyOfRange(args, 1, args.length);
             Log.d("braille-message", message);
-            if (command.equals("sentence")) {
+            if (command.equals("playerInfo")) {
+                playerNumber = Integer.parseInt(arguments[0]);
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        selectionActivity.onConnectionOpen();
+                    }
+                });
+            } else if (command.equals("sentence")) {
                 final String sent = TextUtils.join(" ", arguments);
                 handler.post(new Runnable() {
                     @Override
@@ -81,6 +84,14 @@ public class HostWebSocketConnection {
                     @Override
                     public void run() {
                         inputActivity.setSentence(TextUtils.join(" ", arguments), true);
+                    }
+                });
+            } else if (command.equals("win")) {
+                final int winner = Integer.parseInt(arguments[0]);
+                inputHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        inputActivity.waitingForNext(winner);
                     }
                 });
             }
