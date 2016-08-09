@@ -101,8 +101,10 @@ public class BrailleInputActivity extends AppCompatActivity {
         vibrator.vibrate(500);
         if (winner == HostSelectionActivity.webSocketConnection.playerNumber) {
             button.setText("you won");
+            HostSelectionActivity.tts.say("you won that round", TextToSpeech.QUEUE_FLUSH);
         } else {
             button.setText("you lost");
+            HostSelectionActivity.tts.say("you lost that round", TextToSpeech.QUEUE_FLUSH);
         }
         paused = true;
     }
