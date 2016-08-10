@@ -88,11 +88,11 @@ public class BrailleInputActivity extends AppCompatActivity {
         if (states.get(circle)) {
             circle.setBackgroundResource(R.drawable.circle);
             states.put(circle, false);
-            vibrator.vibrate(60);
+            vibrator.vibrate(40);
         } else {
             circle.setBackgroundResource(R.drawable.selected_circle);
             states.put(circle, true);
-            vibrator.vibrate(130);
+            vibrator.vibrate(70);
         }
     }
 
